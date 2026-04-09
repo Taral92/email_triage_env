@@ -108,24 +108,24 @@ class EmailTriageEnvironment(Environment):
             },
         )
     def compute_score(self, task: str = None) -> float:
-    if self.total_actions == 0:
-        return 0.5
+        if self.total_actions == 0:
+            return 0.5
 
-    raw = self.correct_actions / self.total_actions
+        raw = self.correct_actions / self.total_actions
 
-    if task == "easy":
-        score = 0.10 + raw * 0.88      
-    elif task == "medium":
-        score = 0.08 + raw * 0.88      
-    elif task == "hard":
-        penalty = 0.1 * self.total_actions
-        adjusted = max(0, self.correct_actions - penalty)
-        raw_hard = adjusted / self.total_actions
-        score = 0.05 + raw_hard * 0.88  
-    else:
-        score = 0.10 + raw * 0.88
+        if task == "easy":
+            score = 0.10 + raw * 0.88      
+        elif task == "medium":
+            score = 0.08 + raw * 0.88      
+        elif task == "hard":
+            penalty = 0.1 * self.total_actions
+            adjusted = max(0, self.correct_actions - penalty)
+            raw_hard = adjusted / self.total_actions
+            score = 0.05 + raw_hard * 0.88  
+        else:
+            score = 0.10 + raw * 0.88
 
-    return max(0.01, min(0.99, score))  
+        return max(0.01, min(0.99, score))  
 
     @property
     def state(self):
