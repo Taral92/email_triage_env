@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 import random
-from server.email_triage_env_environment import EmailTriageEnvironment
+from email_triage_env_environment import EmailTriageEnvironment
 from models import EmailTriageAction
 
 
