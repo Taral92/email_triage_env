@@ -128,14 +128,17 @@ class EmailTriageEnvironment(Environment):
             "hard": 0.5,
         }
 
-        base_score = self.correct_actions / self.total_actions
-        base_score = max(0.01, min(base_score, 0.99))
+        base = self.correct_actions / self.total_actions
+        base = max(0.01, min(base, 0.99))
+
         return {
-            "easy": max(0.01, min(base_score * 0.8, 0.99)),
-            "medium": max(0.01, min(base_score, 0.99)),
-            "hard": max(0.01, min(base_score * 1.2, 0.99)),
+            "easy": max(0.01, min(base * 0.8, 0.99)),
+            "medium": base,
+            "hard": max(0.01, min(base * 1.2, 0.99)),
         }
 
     @property
     def state(self):
         return self._state
+
+
