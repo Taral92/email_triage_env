@@ -122,16 +122,19 @@ class EmailTriageEnvironment(Environment):
         )
     def compute_score(self):
         if self.total_actions == 0:
-            return 0.5
+            return {
+            "easy": 0.5,
+            "medium": 0.5,
+            "hard": 0.5,
+        }
 
-        base = self.correct_actions / self.total_actions
-        if self.task_type == "easy":
-            score = base * 0.8
-        elif self.task_type == "medium":
-            score = base
-        else:
-            score = base * 1.2
-        return max(0.01, min(score, 0.99))
+        base_score = self.correct_actions / self.total_actions
+        base_score = max(0.01, min(base_score, 0.99))
+        return {
+            "easy": max(0.01, min(base_score * 0.8, 0.99)),
+            "medium": max(0.01, min(base_score, 0.99)),
+            "hard": max(0.01, min(base_score * 1.2, 0.99)),
+        }
 
     @property
     def state(self):
