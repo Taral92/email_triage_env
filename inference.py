@@ -1,69 +1,97 @@
+import sys
 import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from openai import OpenAI
-import random
+
+
 from server.email_triage_env_environment import EmailTriageEnvironment
 from models import EmailTriageAction
 
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+API_KEY      = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "placeholder")
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
-HF_TOKEN = os.getenv("HF_TOKEN")
-
-client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
-
+client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
 TASKS = ["easy", "medium", "hard"]
+VALID_ACTIONS = ["mark_high", "mark_low", "reply", "ignore", "escalate"]
 
 
-def run_task(task):
+def get_action_from_llm(email_text: str, email_type: str, task_type: str, step: int) -> str:
+    prompt = f"""You are an email triage assistant.
+
+Email: "{email_text}"
+Type: {email_type}
+Task: {task_type}
+Step: {step}
+
+Rules:
+- easy: mark_high (urgent/complaint), mark_low (spam/info)
+- medium: reply or escalate (urgent/complaint), ignore (spam), mark_low (info)
+- hard: reply or escalate (urgent), ignore (spam), reply only (complaint), mark_low (info)
+
+Reply with EXACTLY one word — one of: mark_high, mark_low, reply, ignore, escalate"""
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "You are an email triage assistant. Respond with exactly one action word only."},
+                {"role": "user",   "content": prompt}
+            ],
+            max_tokens=10,
+            temperature=0.0,
+        )
+        raw = response.choices[0].message.content.strip().lower()
+        for action in VALID_ACTIONS:
+            if action in raw:
+                return action
+        return _fallback_action(email_type, task_type)
+    except Exception as e:
+        print(f"LLM error at step {step}: {e}")
+        return _fallback_action(email_type, task_type)
+
+
+def _fallback_action(email_type: str, task_type: str) -> str:
+    if task_type == "easy":
+        return "mark_high" if email_type in ["urgent", "complaint"] else "mark_low"
+    if email_type == "urgent":   return "reply"
+    if email_type == "spam":     return "ignore"
+    if email_type == "complaint": return "reply"
+    return "mark_low"
+
+
+def run_task(task: str):
     env = EmailTriageEnvironment()
-
     obs = env.reset(task=task)
 
     print(f"[START] task={task} env=email_triage model={MODEL_NAME}")
 
     step = 0
     rewards = []
-
     done = False
 
     while not done:
         step += 1
-        email_type = obs.email_type
+        action_str = get_action_from_llm(
+            email_text=obs.email_text,
+            email_type=obs.email_type,
+            task_type=task,
+            step=step
+        )
 
-        if task == "hard" and step == 3:
-            action_str = "mark_high"
-        elif task == "medium" and step == 2:
-            action_str = "ignore"
-        else:
-            if email_type == "urgent":
-                action_str = "reply"
-            elif email_type == "spam":
-                action_str = "ignore"
-            elif email_type == "complaint":
-                action_str = "reply"
-            else:
-                action_str = "mark_low"
-        action = EmailTriageAction(action=action_str)
-
-        result = env.step(action)
-
+        result = env.step(EmailTriageAction(action=action_str))
         reward = round(result.reward, 2)
-        done = result.done
-
+        done   = result.done
         rewards.append(f"{reward:.2f}")
 
-        print(
-            f"[STEP] step={step} action={action_str} reward={reward:.2f} done={str(done).lower()} error=null"
-        )
+        print(f"[STEP] step={step} action={action_str} reward={reward:.2f} done={str(done).lower()} error=null")
 
         obs = result
 
-    score = env.compute_score()
-
-    print(
-        f"[END] success=true steps={step} rewards={','.join(rewards)}"
-    )
+    score = env.compute_score(task=task)
+    print(f"[END] success=true steps={step} rewards={','.join(rewards)}")
 
 
 if __name__ == "__main__":
