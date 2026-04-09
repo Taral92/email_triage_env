@@ -16,7 +16,6 @@ class EmailTriageEnvironment(Environment):
     def reset(self) -> EmailTriageObservation:
         self._state = State(episode_id=str(uuid4()), step_count=0)
 
-        # Task type (easy / medium / hard)
         self.task_type = random.choice(["easy", "medium", "hard"])
 
         # Email dataset
@@ -48,7 +47,7 @@ class EmailTriageEnvironment(Environment):
             self.reset()
         self._state.step_count += 1
 
-        # VALID ACTION CHECK (important)
+
         valid_actions = ["mark_high", "mark_low", "reply", "ignore", "escalate"]
         if action.action not in valid_actions:
             action.action = "ignore"
@@ -57,14 +56,13 @@ class EmailTriageEnvironment(Environment):
         correct = False
         reward = 0.0
 
-        # ---------------- EASY TASK ----------------
         if self.task_type == "easy":
             correct = (
                 (email["type"] in ["urgent", "complaint"] and action.action == "mark_high")
                 or (email["type"] in ["spam", "info"] and action.action == "mark_low")
             )
 
-        # ---------------- MEDIUM TASK ----------------
+     
         elif self.task_type == "medium":
             if email["type"] == "urgent":
                 correct = action.action in ["reply", "escalate"]
@@ -75,7 +73,6 @@ class EmailTriageEnvironment(Environment):
             else:
                 correct = action.action == "mark_low"
 
-        # ---------------- HARD TASK ----------------
         elif self.task_type == "hard":
             if email["type"] == "urgent":
                 correct = action.action in ["reply", "escalate"]
@@ -85,8 +82,6 @@ class EmailTriageEnvironment(Environment):
                 correct = action.action == "reply"
             else:
                 correct = action.action == "mark_low"
-
-        # ---------------- REWARD LOGIC ----------------
         if correct:
             reward += 1.0
             self.correct_actions += 1
@@ -117,20 +112,26 @@ class EmailTriageEnvironment(Environment):
             task_type=self.task_type,
             done=done,
             reward=reward,
-            metadata={
-                "correct": correct,
-                "action_taken": action.action,
-                "email_type": email["type"],
-                "task_type": self.task_type,
-                "step": self._state.step_count,
-            },
+           metadata={
+            "task": self.task_type,
+            "correct": correct,
+            "action_taken": action.action,
+            "email_type": email["type"],
+            "step": self._state.step_count,
+        }
         )
-
-    # FINAL SCORE (0 → 1)
     def compute_score(self):
         if self.total_actions == 0:
-            return 0.0
-        return self.correct_actions / self.total_actions
+            return 0.5
+
+        base = self.correct_actions / self.total_actions
+        if self.task_type == "easy":
+            score = base * 0.8
+        elif self.task_type == "medium":
+            score = base
+        else:
+            score = base * 1.2
+        return max(0.01, min(score, 0.99))
 
     @property
     def state(self):
