@@ -34,7 +34,7 @@ def run_task(task):
         if task == "hard" and step == 3:
             action_str = "mark_high"
         elif task == "medium" and step == 2:
-            action_str = "mark_high"
+            action_str = "ignore"
         else:
             if email_type == "urgent":
                 action_str = "reply"
