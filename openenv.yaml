@@ -5,3 +5,10 @@ runtime: fastapi
 app: server.app:app
 port: 8000
 
+tasks:
+  - name: easy
+    description: Classify emails as high or low priority
+  - name: medium
+    description: Choose correct action for each email type
+  - name: hard
+    description: Strict action matching with penalty scoring
