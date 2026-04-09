@@ -1,12 +1,17 @@
+from openai import OpenAI
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "server"))
+try:
+    from server.email_triage_env_environment import EmailTriageEnvironment
+except ModuleNotFoundError:
+    from email_triage_env_environment import EmailTriageEnvironment
 
-from openai import OpenAI
-
-
-from server.email_triage_env_environment import EmailTriageEnvironment
-from models import EmailTriageAction
+try:
+    from models import EmailTriageAction
+except ModuleNotFoundError:
+    from models import EmailTriageAction
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o-mini")
